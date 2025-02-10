@@ -8,7 +8,7 @@ const app = express();
 // 📂 Configurations
 const COOKIES_FILE = "./youtube-cookies.txt";
 const YTDLP_PATH = path.join(__dirname, "yt-dlp");
-const FFmpeg_PATH = path.join(__dirname, "ffmpeg");  // Statically compiled FFmpeg
+const FFmpeg_PATH = path.join(__dirname, "ffmpeg/ffmpeg");  // Corrected FFmpeg Path
 const DOWNLOAD_FOLDER = path.join(__dirname, "download");
 
 // 📂 Ensure Download Folder Exists
@@ -39,7 +39,7 @@ const installFFmpeg = () => {
     if (!fs.existsSync(FFmpeg_PATH)) {
         console.log("🔄 Downloading FFmpeg...");
         exec(
-            `curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz | tar -xJf - --strip-components=1 -C . && mv ffmpeg ffmpeg && chmod +x ffmpeg`,
+            `mkdir -p ffmpeg && cd ffmpeg && curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz -o ffmpeg.tar.xz && tar -xJf ffmpeg.tar.xz --strip-components=1 && chmod +x ffmpeg`,
             (error) => {
                 if (error) {
                     console.error("❌ FFmpeg Download Failed:", error.message);
@@ -80,7 +80,7 @@ app.get("/download", async (req, res) => {
         const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
         // 🔻 yt-dlp Command with Local FFmpeg Support
-        let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${outputFile}" -f "bestvideo+bestaudio" --merge-output-format mp4`;
+        let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${DOWNLOAD_FOLDER}/video_${timestamp}.%(ext)s" -f "bv*+ba/best" --merge-output-format mp4`;
 
         if (fs.existsSync(COOKIES_FILE)) {
             console.log("✅ Cookies file found, using it...");
@@ -99,7 +99,7 @@ app.get("/download", async (req, res) => {
 
             console.log("✅ Download Success:", stdout);
 
-            // 🔎 Wait & Check File Existence
+            // 🔎 Check If File Exists After Merge
             setTimeout(() => {
                 if (fs.existsSync(outputFile)) {
                     console.log("✅ File exists, sending response...");
