@@ -57,7 +57,7 @@ const installFFmpeg = () => {
 installYTDLP();
 installFFmpeg();
 
-// 🔗 Serve Download Folder Publicly
+// 🔗 Serve Download Folder Publicly (Temporarily)
 app.use("/download", express.static(DOWNLOAD_FOLDER));
 
 // 📌 API Root
@@ -77,9 +77,10 @@ app.get("/download", async (req, res) => {
 
         // 📂 Unique Filename
         const timestamp = Date.now();
+        const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
         // 🔻 yt-dlp Command for Direct MP4 Download
-        let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "/workspace/download/video_${timestamp}.mp4" -f "best[ext=mp4]"`;
+        let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${outputFile}" -f "best[ext=mp4]"`;
 
         if (fs.existsSync(COOKIES_FILE)) {
             console.log("✅ Cookies file found, using it...");
@@ -98,14 +99,22 @@ app.get("/download", async (req, res) => {
 
             console.log("✅ Download Success:", stdout);
 
-            // 🔎 Check If File Exists
+            // 🔎 Wait & Check File Existence
             setTimeout(() => {
-                const files = fs.readdirSync(DOWNLOAD_FOLDER);
-                const finalFile = files.find(f => f.includes(timestamp) && f.endsWith(".mp4"));
+                if (fs.existsSync(outputFile)) {
+                    console.log("✅ File Ready for Download:", outputFile);
+                    
+                    // ⬇️ **Directly Send File to User & Delete from Server**
+                    res.download(outputFile, `downloaded_video.mp4`, (err) => {
+                        if (err) {
+                            console.error("❌ File Download Error:", err);
+                            res.status(500).send("❌ Error: Could not send file!");
+                        } else {
+                            console.log("🗑️ Deleting File:", outputFile);
+                            fs.unlinkSync(outputFile); // **Delete File After Download**
+                        }
+                    });
 
-                if (finalFile) {
-                    console.log("✅ Final MP4 File Found:", finalFile);
-                    res.send(`✅ Download Successful! <br> <a href="/download/${finalFile}">Click Here to Download</a>`);
                 } else {
                     console.error("❌ MP4 File Not Found!");
                     res.status(500).send("❌ Error: MP4 file not found after download!");
@@ -124,3 +133,4 @@ const PORT = 8000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
+                    
