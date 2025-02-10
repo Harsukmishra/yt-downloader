@@ -61,6 +61,9 @@ const installFFMPEG = () => {
 installYTDLP();
 installFFMPEG();
 
+// Serve Downloads Folder Publicly
+app.use("/downloads", express.static(DOWNLOADS_FOLDER));
+
 app.get("/", (req, res) => {
     res.send("✅ YouTube Video Downloader API is Running!");
 });
@@ -74,14 +77,13 @@ app.get("/download", async (req, res) => {
     try {
         console.log(`🔄 Fetching Video: ${videoUrl}`);
 
-        // Unique File Name
-        const timestamp = Date.now();
-        const videoFile = path.join(DOWNLOADS_FOLDER, `video_${timestamp}.mp4`);
-        const audioFile = path.join(DOWNLOADS_FOLDER, `audio_${timestamp}.m4a`);
-        const outputFile = path.join(DOWNLOADS_FOLDER, `final_${timestamp}.mp4`);
+        // Temporary file names
+        const videoFile = path.join(DOWNLOADS_FOLDER, "video.mp4");
+        const audioFile = path.join(DOWNLOADS_FOLDER, "audio.m4a");
+        const outputFile = path.join(DOWNLOADS_FOLDER, "final_video.mp4");
 
         // yt-dlp Command for Separate Video & Audio
-        let command = `${YTDLP_PATH} --no-check-certificate -o "${DOWNLOADS_FOLDER}/video_${timestamp}.%(ext)s" --format "bv*[ext=mp4]+ba[ext=m4a]" "${videoUrl}"`;
+        let command = `${YTDLP_PATH} --no-check-certificate -o "${DOWNLOADS_FOLDER}/video.%(ext)s" --format "bv*[ext=mp4]+ba[ext=m4a]" "${videoUrl}"`;
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -102,25 +104,8 @@ app.get("/download", async (req, res) => {
 
                 console.log("✅ Merge Success:", mergeStdout);
 
-                // **🔽 Auto-Download in User's File Manager 🔽**
-                res.download(outputFile, "downloaded_video.mp4", (err) => {
-                    if (err) {
-                        console.error("❌ File Download Error:", err);
-                        res.status(500).send("❌ File Download Failed!");
-                    } else {
-                        console.log("✅ File Sent to User for Download!");
-
-                        // **🔥 Delete Files from Server After Download 🔥**
-                        setTimeout(() => {
-                            [videoFile, audioFile, outputFile].forEach((file) => {
-                                if (fs.existsSync(file)) {
-                                    fs.unlinkSync(file);
-                                    console.log(`🗑 Deleted: ${file}`);
-                                }
-                            });
-                        }, 5000); // Delete after 5 seconds
-                    }
-                });
+                // Send Download Link
+                res.send(`✅ Download Successful! <br> <a href="/downloads/final_video.mp4">Click Here to Download</a>`);
             });
         });
 
