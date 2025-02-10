@@ -5,33 +5,26 @@ const path = require("path");
 
 const app = express();
 
-// YouTube Cookies File Path
+// Configurations
 const COOKIES_FILE = "./youtube-cookies.txt";
-
-// Puppeteer Chrome Path (If Needed in Future)
-const CHROME_PATH = "/data/data/com.termux/files/usr/bin/chromium";
-
-// yt-dlp Binary Path
 const YTDLP_PATH = path.join(__dirname, "yt-dlp");
+const DOWNLOAD_FOLDER = path.join(__dirname, "download"); // Fixed path
 
-// Download Folder Path (Ye file manager me dikhne ke liye serve hoga)
-const DOWNLOADS_FOLDER = path.join(__dirname, "downloads");
-
-// Ensure Downloads Folder Exists
-if (!fs.existsSync(DOWNLOADS_FOLDER)) {
-    fs.mkdirSync(DOWNLOADS_FOLDER);
+// Ensure Download Folder Exists
+if (!fs.existsSync(DOWNLOAD_FOLDER)) {
+    fs.mkdirSync(DOWNLOAD_FOLDER, { recursive: true });
 }
 
-// Serve Downloads Folder Publicly
-app.use("/downloads", express.static(DOWNLOADS_FOLDER));
+// Serve Download Folder Publicly
+app.use("/download", express.static(DOWNLOAD_FOLDER));
 
-// Function to Download yt-dlp Binary if Not Installed
+// Install yt-dlp if Not Exists
 const installYTDLP = () => {
     if (!fs.existsSync(YTDLP_PATH)) {
         console.log("🔄 Downloading yt-dlp...");
         exec(
             `curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ${YTDLP_PATH} && chmod +x ${YTDLP_PATH}`,
-            (error, stdout, stderr) => {
+            (error) => {
                 if (error) {
                     console.error("❌ yt-dlp Download Failed:", error.message);
                 } else {
@@ -58,13 +51,13 @@ app.get("/download", async (req, res) => {
     try {
         console.log(`🔄 Fetching Video: ${videoUrl}`);
 
-        // Output File Path
-        const outputFile = path.join(DOWNLOADS_FOLDER, "video.mp4");
+        // Unique Filename for Each Download
+        const timestamp = Date.now();
+        const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
-        // Construct yt-dlp Command
-        let command = `${YTDLP_PATH} --no-check-certificate -o "${outputFile}" --merge-output-format mp4 --format "bestvideo[ext=mp4]+bestaudio[ext=m4a]"`;
+        // yt-dlp Command
+        let command = `${YTDLP_PATH} --no-check-certificate -o "${outputFile}" --merge-output-format mp4 --format "bv*+ba/best"`;
 
-        // Check if Cookies File Exists
         if (fs.existsSync(COOKIES_FILE)) {
             console.log("✅ Cookies file found, using it...");
             command += ` --cookies ${COOKIES_FILE}`;
@@ -76,14 +69,23 @@ app.get("/download", async (req, res) => {
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
-                console.error("❌ Download Error:", error.message);
+                console.error("❌ Download Error:", stderr);
                 return res.status(500).send(`❌ Video Download Failed! Error: ${stderr}`);
             }
 
             console.log("✅ Download Success:", stdout);
 
-            // Send Download Link
-            res.send(`✅ Download Successful! <br> <a href="/downloads/video.mp4">Click Here to Download</a>`);
+            // Wait and Check if File Exists Before Sending Response
+            setTimeout(() => {
+                if (fs.existsSync(outputFile)) {
+                    console.log("✅ File exists, sending response...");
+                    res.send(`✅ Download Successful! <br> <a href="/download/video_${timestamp}.mp4">Click Here to Download</a>`);
+                } else {
+                    console.error("❌ File not found in download folder!");
+                    res.status(500).send("❌ Error: File not found after download!");
+                }
+            }, 5000); // Delay to allow file to be properly saved
+
         });
 
     } catch (err) {
