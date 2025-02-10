@@ -5,7 +5,7 @@ const path = require("path");
 
 const app = express();
 
-// YouTube Cookies File Path (Updated)
+// YouTube Cookies File Path
 const COOKIES_FILE = "./youtube-cookies.txt";
 
 // Puppeteer Chrome Path (If Needed in Future)
@@ -13,6 +13,17 @@ const CHROME_PATH = "/data/data/com.termux/files/usr/bin/chromium";
 
 // yt-dlp Binary Path
 const YTDLP_PATH = path.join(__dirname, "yt-dlp");
+
+// Download Folder Path (Ye file manager me dikhne ke liye serve hoga)
+const DOWNLOADS_FOLDER = path.join(__dirname, "downloads");
+
+// Ensure Downloads Folder Exists
+if (!fs.existsSync(DOWNLOADS_FOLDER)) {
+    fs.mkdirSync(DOWNLOADS_FOLDER);
+}
+
+// Serve Downloads Folder Publicly
+app.use("/downloads", express.static(DOWNLOADS_FOLDER));
 
 // Function to Download yt-dlp Binary if Not Installed
 const installYTDLP = () => {
@@ -47,8 +58,11 @@ app.get("/download", async (req, res) => {
     try {
         console.log(`🔄 Fetching Video: ${videoUrl}`);
 
+        // Output File Path
+        const outputFile = path.join(DOWNLOADS_FOLDER, "video.mp4");
+
         // Construct yt-dlp Command
-        let command = `${YTDLP_PATH} --no-check-certificate -o "downloaded_video.%(ext)s"`;
+        let command = `${YTDLP_PATH} --no-check-certificate -o "${outputFile}" --merge-output-format mp4 --format "bestvideo[ext=mp4]+bestaudio[ext=m4a]"`;
 
         // Check if Cookies File Exists
         if (fs.existsSync(COOKIES_FILE)) {
@@ -58,8 +72,7 @@ app.get("/download", async (req, res) => {
             console.warn("⚠️ Warning: Cookies file not found. Some videos may not download.");
         }
 
-        // Add Format Selection (Best Available)
-        command += ` --format "bv*+ba/b" "${videoUrl}"`;
+        command += ` "${videoUrl}"`;
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -69,17 +82,8 @@ app.get("/download", async (req, res) => {
 
             console.log("✅ Download Success:", stdout);
 
-            // Send the downloaded file to the client
-            const filePath = "downloaded_video.mp4";
-            if (fs.existsSync(filePath)) {
-                res.download(filePath, "video.mp4", (err) => {
-                    if (err) console.error("❌ File Send Error:", err);
-                    // Delete file after sending
-                    fs.unlinkSync(filePath);
-                });
-            } else {
-                res.status(500).send("❌ Downloaded File Not Found!");
-            }
+            // Send Download Link
+            res.send(`✅ Download Successful! <br> <a href="/downloads/video.mp4">Click Here to Download</a>`);
         });
 
     } catch (err) {
