@@ -5,20 +5,18 @@ const path = require("path");
 
 const app = express();
 
-// Configurations
+// 📂 Configurations
 const COOKIES_FILE = "./youtube-cookies.txt";
 const YTDLP_PATH = path.join(__dirname, "yt-dlp");
-const DOWNLOAD_FOLDER = path.join(__dirname, "download"); // Fixed path
+const DOWNLOAD_FOLDER = path.join(__dirname, "download");
 
-// Ensure Download Folder Exists
+// 📂 Ensure Download Folder Exists
 if (!fs.existsSync(DOWNLOAD_FOLDER)) {
+    console.log("🚀 Creating download folder...");
     fs.mkdirSync(DOWNLOAD_FOLDER, { recursive: true });
 }
 
-// Serve Download Folder Publicly
-app.use("/download", express.static(DOWNLOAD_FOLDER));
-
-// Install yt-dlp if Not Exists
+// 🔄 Install yt-dlp if Not Exists
 const installYTDLP = () => {
     if (!fs.existsSync(YTDLP_PATH)) {
         console.log("🔄 Downloading yt-dlp...");
@@ -35,13 +33,41 @@ const installYTDLP = () => {
     }
 };
 
-// Install yt-dlp on Server Start
-installYTDLP();
+// 🔄 Install FFmpeg if Not Exists
+const installFFmpeg = () => {
+    console.log("🔄 Checking FFmpeg installation...");
+    exec("ffmpeg -version", (error, stdout, stderr) => {
+        if (error) {
+            console.log("⚠️ FFmpeg not found. Installing...");
+            exec(
+                `apt update && apt install -y ffmpeg`,
+                (err, out, errOut) => {
+                    if (err) {
+                        console.error("❌ FFmpeg Installation Failed:", errOut);
+                    } else {
+                        console.log("✅ FFmpeg Installed Successfully!");
+                    }
+                }
+            );
+        } else {
+            console.log("✅ FFmpeg is already installed.");
+        }
+    });
+};
 
+// 🛠 Install Dependencies on Server Start
+installYTDLP();
+installFFmpeg();
+
+// 🔗 Serve Download Folder Publicly
+app.use("/download", express.static(DOWNLOAD_FOLDER));
+
+// 📌 API Root
 app.get("/", (req, res) => {
     res.send("✅ YouTube Video Downloader API is Running!");
 });
 
+// 📥 Download Route
 app.get("/download", async (req, res) => {
     const videoUrl = req.query.url;
     if (!videoUrl) {
@@ -51,18 +77,18 @@ app.get("/download", async (req, res) => {
     try {
         console.log(`🔄 Fetching Video: ${videoUrl}`);
 
-        // Unique Filename for Each Download
+        // 📂 Unique Filename
         const timestamp = Date.now();
         const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
-        // yt-dlp Command
-        let command = `${YTDLP_PATH} --no-check-certificate -o "${outputFile}" --merge-output-format mp4 --format "bv*+ba/best"`;
+        // 🔻 yt-dlp Command with FFmpeg Support
+        let command = `${YTDLP_PATH} --no-check-certificate -o "${outputFile}" -f "bestvideo+bestaudio" --merge-output-format mp4`;
 
         if (fs.existsSync(COOKIES_FILE)) {
             console.log("✅ Cookies file found, using it...");
             command += ` --cookies ${COOKIES_FILE}`;
         } else {
-            console.warn("⚠️ Warning: Cookies file not found. Some videos may not download.");
+            console.warn("⚠️ Cookies file not found. Some videos may not download.");
         }
 
         command += ` "${videoUrl}"`;
@@ -75,7 +101,7 @@ app.get("/download", async (req, res) => {
 
             console.log("✅ Download Success:", stdout);
 
-            // Wait and Check if File Exists Before Sending Response
+            // 🔎 Wait & Check File Existence
             setTimeout(() => {
                 if (fs.existsSync(outputFile)) {
                     console.log("✅ File exists, sending response...");
@@ -84,8 +110,7 @@ app.get("/download", async (req, res) => {
                     console.error("❌ File not found in download folder!");
                     res.status(500).send("❌ Error: File not found after download!");
                 }
-            }, 5000); // Delay to allow file to be properly saved
-
+            }, 5000);
         });
 
     } catch (err) {
@@ -94,7 +119,7 @@ app.get("/download", async (req, res) => {
     }
 });
 
-// Start Server
+// 🚀 Start Server
 const PORT = 8000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
