@@ -1,14 +1,14 @@
 const express = require("express");
 const fs = require("fs");
 const { exec } = require("child_process");
-const puppeteer = require("puppeteer-core");
-const app = express();
 const path = require("path");
 
-// YouTube Cookies File Path
-const COOKIES_FILE = "./cookies.txt";
+const app = express();
 
-// Puppeteer Chrome Path (Android Termux Users)
+// YouTube Cookies File Path (Updated)
+const COOKIES_FILE = "./youtube-cookies.txt";
+
+// Puppeteer Chrome Path (If Needed in Future)
 const CHROME_PATH = "/data/data/com.termux/files/usr/bin/chromium";
 
 // yt-dlp Binary Path
@@ -47,19 +47,24 @@ app.get("/download", async (req, res) => {
     try {
         console.log(`🔄 Fetching Video: ${videoUrl}`);
 
-        // Download Command with Cookies Support
-        let command = `${YTDLP_PATH} --no-check-certificate -o "downloaded_video.%(ext)s" --format best`;
+        // Construct yt-dlp Command
+        let command = `${YTDLP_PATH} --no-check-certificate -o "downloaded_video.%(ext)s"`;
 
+        // Check if Cookies File Exists
         if (fs.existsSync(COOKIES_FILE)) {
+            console.log("✅ Cookies file found, using it...");
             command += ` --cookies ${COOKIES_FILE}`;
+        } else {
+            console.warn("⚠️ Warning: Cookies file not found. Some videos may not download.");
         }
 
-        command += ` "${videoUrl}"`;
+        // Add Format Selection (Best Available)
+        command += ` --format "bv*+ba/b" "${videoUrl}"`;
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
                 console.error("❌ Download Error:", error.message);
-                return res.status(500).send("❌ Video Download Failed!");
+                return res.status(500).send(`❌ Video Download Failed! Error: ${stderr}`);
             }
 
             console.log("✅ Download Success:", stdout);
