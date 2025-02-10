@@ -10,6 +10,20 @@ const COOKIES_FILE = "./cookies.txt";
 // Puppeteer Chrome Path (Android Termux Users)
 const CHROME_PATH = "/data/data/com.termux/files/usr/bin/chromium";
 
+// Function to Install yt-dlp if not installed
+const installYTDLP = () => {
+    exec("pip install yt-dlp", (error, stdout, stderr) => {
+        if (error) {
+            console.error("❌ yt-dlp Installation Failed:", error.message);
+        } else {
+            console.log("✅ yt-dlp Installed Successfully!");
+        }
+    });
+};
+
+// Install yt-dlp on Server Start
+installYTDLP();
+
 app.get("/", (req, res) => {
     res.send("✅ YouTube Video Downloader API is Running!");
 });
@@ -86,4 +100,3 @@ const PORT = 8000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
-
