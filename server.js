@@ -77,10 +77,9 @@ app.get("/download", async (req, res) => {
 
         // 📂 Unique Filename
         const timestamp = Date.now();
-        const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
-        // 🔻 yt-dlp Command with Local FFmpeg Support
-        let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${DOWNLOAD_FOLDER}/video_${timestamp}.%(ext)s" -f "bv*+ba/best" --merge-output-format mp4`;
+        // 🔻 yt-dlp Command for Direct MP4 Download
+        let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "/workspace/download/video_${timestamp}.mp4" -f "best[ext=mp4]"`;
 
         if (fs.existsSync(COOKIES_FILE)) {
             console.log("✅ Cookies file found, using it...");
@@ -99,14 +98,17 @@ app.get("/download", async (req, res) => {
 
             console.log("✅ Download Success:", stdout);
 
-            // 🔎 Check If File Exists After Merge
+            // 🔎 Check If File Exists
             setTimeout(() => {
-                if (fs.existsSync(outputFile)) {
-                    console.log("✅ File exists, sending response...");
-                    res.send(`✅ Download Successful! <br> <a href="/download/video_${timestamp}.mp4">Click Here to Download</a>`);
+                const files = fs.readdirSync(DOWNLOAD_FOLDER);
+                const finalFile = files.find(f => f.includes(timestamp) && f.endsWith(".mp4"));
+
+                if (finalFile) {
+                    console.log("✅ Final MP4 File Found:", finalFile);
+                    res.send(`✅ Download Successful! <br> <a href="/download/${finalFile}">Click Here to Download</a>`);
                 } else {
-                    console.error("❌ File not found in download folder!");
-                    res.status(500).send("❌ Error: File not found after download!");
+                    console.error("❌ MP4 File Not Found!");
+                    res.status(500).send("❌ Error: MP4 file not found after download!");
                 }
             }, 5000);
         });
