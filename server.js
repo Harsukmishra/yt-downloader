@@ -5,29 +5,24 @@ const path = require("path");
 
 const app = express();
 
+// YouTube Cookies File Path (Updated)
+const COOKIES_FILE = "./youtube-cookies.txt";
+
+// Puppeteer Chrome Path (If Needed in Future)
+const CHROME_PATH = "/data/data/com.termux/files/usr/bin/chromium";
+
 // yt-dlp Binary Path
 const YTDLP_PATH = path.join(__dirname, "yt-dlp");
 
-// ffmpeg Path
-const FFMPEG_PATH = "ffmpeg";
-
-// Download Folder Path
-const DOWNLOADS_FOLDER = path.join(__dirname, "downloads");
-
-// Ensure Downloads Folder Exists
-if (!fs.existsSync(DOWNLOADS_FOLDER)) {
-    fs.mkdirSync(DOWNLOADS_FOLDER);
-}
-
-// Function to Install yt-dlp if Not Installed
+// Function to Download yt-dlp Binary if Not Installed
 const installYTDLP = () => {
     if (!fs.existsSync(YTDLP_PATH)) {
-        console.log("🔄 Installing yt-dlp...");
+        console.log("🔄 Downloading yt-dlp...");
         exec(
             `curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ${YTDLP_PATH} && chmod +x ${YTDLP_PATH}`,
-            (error) => {
+            (error, stdout, stderr) => {
                 if (error) {
-                    console.error("❌ yt-dlp Installation Failed:", error.message);
+                    console.error("❌ yt-dlp Download Failed:", error.message);
                 } else {
                     console.log("✅ yt-dlp Installed Successfully!");
                 }
@@ -36,33 +31,8 @@ const installYTDLP = () => {
     }
 };
 
-// Function to Install ffmpeg if Not Installed
-const installFFMPEG = () => {
-    exec(`${FFMPEG_PATH} -version`, (error) => {
-        if (error) {
-            console.log("🔄 Installing ffmpeg...");
-            exec(
-                "pkg install -y ffmpeg || sudo apt install -y ffmpeg",
-                (installError, stdout, stderr) => {
-                    if (installError) {
-                        console.error("❌ ffmpeg Installation Failed:", stderr);
-                    } else {
-                        console.log("✅ ffmpeg Installed Successfully!");
-                    }
-                }
-            );
-        } else {
-            console.log("✅ ffmpeg Already Installed!");
-        }
-    });
-};
-
-// Install yt-dlp & ffmpeg on Server Start
+// Install yt-dlp on Server Start
 installYTDLP();
-installFFMPEG();
-
-// Serve Downloads Folder Publicly
-app.use("/downloads", express.static(DOWNLOADS_FOLDER));
 
 app.get("/", (req, res) => {
     res.send("✅ YouTube Video Downloader API is Running!");
@@ -77,13 +47,19 @@ app.get("/download", async (req, res) => {
     try {
         console.log(`🔄 Fetching Video: ${videoUrl}`);
 
-        // Temporary file names
-        const videoFile = path.join(DOWNLOADS_FOLDER, "video.mp4");
-        const audioFile = path.join(DOWNLOADS_FOLDER, "audio.m4a");
-        const outputFile = path.join(DOWNLOADS_FOLDER, "final_video.mp4");
+        // Construct yt-dlp Command
+        let command = `${YTDLP_PATH} --no-check-certificate -o "downloaded_video.%(ext)s"`;
 
-        // yt-dlp Command for Separate Video & Audio
-        let command = `${YTDLP_PATH} --no-check-certificate -o "${DOWNLOADS_FOLDER}/video.%(ext)s" --format "bv*[ext=mp4]+ba[ext=m4a]" "${videoUrl}"`;
+        // Check if Cookies File Exists
+        if (fs.existsSync(COOKIES_FILE)) {
+            console.log("✅ Cookies file found, using it...");
+            command += ` --cookies ${COOKIES_FILE}`;
+        } else {
+            console.warn("⚠️ Warning: Cookies file not found. Some videos may not download.");
+        }
+
+        // Add Format Selection (Best Available)
+        command += ` --format "bv*+ba/b" "${videoUrl}"`;
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -93,20 +69,17 @@ app.get("/download", async (req, res) => {
 
             console.log("✅ Download Success:", stdout);
 
-            // Merge Video & Audio using ffmpeg
-            const mergeCommand = `${FFMPEG_PATH} -i "${videoFile}" -i "${audioFile}" -c:v copy -c:a aac "${outputFile}" -y`;
-
-            exec(mergeCommand, (mergeError, mergeStdout, mergeStderr) => {
-                if (mergeError) {
-                    console.error("❌ Merge Error:", mergeError.message);
-                    return res.status(500).send("❌ Video Merge Failed!");
-                }
-
-                console.log("✅ Merge Success:", mergeStdout);
-
-                // Send Download Link
-                res.send(`✅ Download Successful! <br> <a href="/downloads/final_video.mp4">Click Here to Download</a>`);
-            });
+            // Send the downloaded file to the client
+            const filePath = "downloaded_video.mp4";
+            if (fs.existsSync(filePath)) {
+                res.download(filePath, "video.mp4", (err) => {
+                    if (err) console.error("❌ File Send Error:", err);
+                    // Delete file after sending
+                    fs.unlinkSync(filePath);
+                });
+            } else {
+                res.status(500).send("❌ Downloaded File Not Found!");
+            }
         });
 
     } catch (err) {
