@@ -3,22 +3,32 @@ const fs = require("fs");
 const { exec } = require("child_process");
 const puppeteer = require("puppeteer-core");
 const app = express();
+const path = require("path");
 
-// YouTube Cookies File Path (If Available)
+// YouTube Cookies File Path
 const COOKIES_FILE = "./cookies.txt";
 
 // Puppeteer Chrome Path (Android Termux Users)
 const CHROME_PATH = "/data/data/com.termux/files/usr/bin/chromium";
 
-// Function to Install yt-dlp if not installed
+// yt-dlp Binary Path
+const YTDLP_PATH = path.join(__dirname, "yt-dlp");
+
+// Function to Download yt-dlp Binary if Not Installed
 const installYTDLP = () => {
-    exec("pip install yt-dlp", (error, stdout, stderr) => {
-        if (error) {
-            console.error("❌ yt-dlp Installation Failed:", error.message);
-        } else {
-            console.log("✅ yt-dlp Installed Successfully!");
-        }
-    });
+    if (!fs.existsSync(YTDLP_PATH)) {
+        console.log("🔄 Downloading yt-dlp...");
+        exec(
+            `curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ${YTDLP_PATH} && chmod +x ${YTDLP_PATH}`,
+            (error, stdout, stderr) => {
+                if (error) {
+                    console.error("❌ yt-dlp Download Failed:", error.message);
+                } else {
+                    console.log("✅ yt-dlp Installed Successfully!");
+                }
+            }
+        );
+    }
 };
 
 // Install yt-dlp on Server Start
@@ -38,9 +48,8 @@ app.get("/download", async (req, res) => {
         console.log(`🔄 Fetching Video: ${videoUrl}`);
 
         // Download Command with Cookies Support
-        let command = `yt-dlp --no-check-certificate -o "downloaded_video.%(ext)s" --format best`;
+        let command = `${YTDLP_PATH} --no-check-certificate -o "downloaded_video.%(ext)s" --format best`;
 
-        // Agar cookies.txt file hai, to use karega
         if (fs.existsSync(COOKIES_FILE)) {
             command += ` --cookies ${COOKIES_FILE}`;
         }
@@ -71,27 +80,6 @@ app.get("/download", async (req, res) => {
     } catch (err) {
         console.error("❌ Server Error:", err);
         res.status(500).send("❌ Internal Server Error!");
-    }
-});
-
-// Puppeteer Browser Test Route
-app.get("/check-browser", async (req, res) => {
-    try {
-        const browser = await puppeteer.launch({
-            executablePath: CHROME_PATH,
-            headless: true,
-            args: ["--no-sandbox", "--disable-setuid-sandbox"]
-        });
-
-        const page = await browser.newPage();
-        await page.goto("https://www.youtube.com");
-
-        const title = await page.title();
-        await browser.close();
-
-        res.send(`✅ Browser Working! YouTube Title: ${title}`);
-    } catch (err) {
-        res.status(500).send(`❌ Puppeteer Error: ${err.message}`);
     }
 });
 
