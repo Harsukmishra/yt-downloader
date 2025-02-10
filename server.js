@@ -8,6 +8,7 @@ const app = express();
 // 📂 Configurations
 const COOKIES_FILE = "./youtube-cookies.txt";
 const YTDLP_PATH = path.join(__dirname, "yt-dlp");
+const FFmpeg_PATH = path.join(__dirname, "ffmpeg");  // Statically compiled FFmpeg
 const DOWNLOAD_FOLDER = path.join(__dirname, "download");
 
 // 📂 Ensure Download Folder Exists
@@ -33,26 +34,23 @@ const installYTDLP = () => {
     }
 };
 
-// 🔄 Install FFmpeg if Not Exists
+// 🔄 Install FFmpeg Without `apt`
 const installFFmpeg = () => {
-    console.log("🔄 Checking FFmpeg installation...");
-    exec("ffmpeg -version", (error, stdout, stderr) => {
-        if (error) {
-            console.log("⚠️ FFmpeg not found. Installing...");
-            exec(
-                `apt update && apt install -y ffmpeg`,
-                (err, out, errOut) => {
-                    if (err) {
-                        console.error("❌ FFmpeg Installation Failed:", errOut);
-                    } else {
-                        console.log("✅ FFmpeg Installed Successfully!");
-                    }
+    if (!fs.existsSync(FFmpeg_PATH)) {
+        console.log("🔄 Downloading FFmpeg...");
+        exec(
+            `curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz | tar -xJf - --strip-components=1 -C . && mv ffmpeg ffmpeg && chmod +x ffmpeg`,
+            (error) => {
+                if (error) {
+                    console.error("❌ FFmpeg Download Failed:", error.message);
+                } else {
+                    console.log("✅ FFmpeg Installed Successfully!");
                 }
-            );
-        } else {
-            console.log("✅ FFmpeg is already installed.");
-        }
-    });
+            }
+        );
+    } else {
+        console.log("✅ FFmpeg Already Installed.");
+    }
 };
 
 // 🛠 Install Dependencies on Server Start
@@ -81,8 +79,8 @@ app.get("/download", async (req, res) => {
         const timestamp = Date.now();
         const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
-        // 🔻 yt-dlp Command with FFmpeg Support
-        let command = `${YTDLP_PATH} --no-check-certificate -o "${outputFile}" -f "bestvideo+bestaudio" --merge-output-format mp4`;
+        // 🔻 yt-dlp Command with Local FFmpeg Support
+        let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${outputFile}" -f "bestvideo+bestaudio" --merge-output-format mp4`;
 
         if (fs.existsSync(COOKIES_FILE)) {
             console.log("✅ Cookies file found, using it...");
