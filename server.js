@@ -8,7 +8,7 @@ const app = express();
 // 📂 Configurations
 const COOKIES_FILE = "./youtube-cookies.txt";
 const YTDLP_PATH = path.join(__dirname, "yt-dlp");
-const FFmpeg_PATH = path.join(__dirname, "ffmpeg/ffmpeg");  // Corrected FFmpeg Path
+const FFmpeg_PATH = path.join(__dirname, "ffmpeg/ffmpeg"); 
 const DOWNLOAD_FOLDER = path.join(__dirname, "download");
 
 // 📂 Ensure Download Folder Exists
@@ -103,9 +103,10 @@ app.get("/download", async (req, res) => {
             setTimeout(() => {
                 if (fs.existsSync(outputFile)) {
                     console.log("✅ File Ready for Download:", outputFile);
-                    
+
                     // ⬇️ **Generate a Temporary Download Link**
-                    const downloadUrl = `http://localhost:8000/download/${path.basename(outputFile)}`;
+                    const baseUrl = process.env.BASE_URL || 'http://localhost:8000';
+                    const downloadUrl = `${baseUrl}/download/${path.basename(outputFile)}`;
 
                     // Send the download URL to frontend
                     res.json({
@@ -116,14 +117,14 @@ app.get("/download", async (req, res) => {
                     // ⏳ Schedule the file to be deleted after 5 minutes
                     setTimeout(() => {
                         console.log("🗑️ Deleting File:", outputFile);
-                        fs.unlinkSync(outputFile); // **Delete File After 5 minutes**
+                        fs.unlinkSync(outputFile); 
                     }, 5 * 60 * 1000); // 5 minutes in milliseconds
 
                 } else {
                     console.error("❌ MP4 File Not Found!");
                     res.status(500).send("❌ Error: MP4 file not found after download!");
                 }
-            }, 5000); // Wait 5 seconds to ensure the file is fully saved
+            }, 5000); 
 
         });
 
