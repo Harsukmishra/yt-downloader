@@ -76,7 +76,7 @@ app.get("/download", async (req, res) => {
     const timestamp = Date.now();
     const fileName = `video_${timestamp}.mp4`;
     const outputPath = path.join(DOWNLOAD_FOLDER, fileName);
-    const downloadUrl = `http://localhost:8000/download/${fileName}`;
+    const downloadUrl = `${BASE_URL}/download/video_${timestamp}.mp4`;
 
     // 🔻 yt-dlp Command for MP4 Download
     let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${outputPath}" -f "best[ext=mp4]"`;
