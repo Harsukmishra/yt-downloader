@@ -105,7 +105,7 @@ app.get("/download", async (req, res) => {
                     console.log("✅ File Ready for Download:", outputFile);
 
                     // ⬇️ **Generate a Temporary Download Link**
-                    const baseUrl = process.env.BASE_URL || 'http://localhost:8000';
+                    const baseUrl = process.env.BASE_URL || 'https://female-sallyann-harsukmishra-0ec12583.koyeb.app';
                     const downloadUrl = `${baseUrl}/download/${path.basename(outputFile)}`;
 
                     // Send the download URL to frontend
