@@ -104,22 +104,27 @@ app.get("/download", async (req, res) => {
                 if (fs.existsSync(outputFile)) {
                     console.log("✅ File Ready for Download:", outputFile);
                     
-                    // ⬇️ **Directly Send File to User & Delete from Server**
-                    res.download(outputFile, `downloaded_video.mp4`, (err) => {
-                        if (err) {
-                            console.error("❌ File Download Error:", err);
-                            res.status(500).send("❌ Error: Could not send file!");
-                        } else {
-                            console.log("🗑️ Deleting File:", outputFile);
-                            fs.unlinkSync(outputFile); // **Delete File After Download**
-                        }
+                    // ⬇️ **Generate a Temporary Download Link**
+                    const downloadUrl = `http://localhost:8000/download/${path.basename(outputFile)}`;
+
+                    // Send the download URL to frontend
+                    res.json({
+                        status: "success",
+                        download_url: downloadUrl
                     });
+
+                    // ⏳ Schedule the file to be deleted after 5 minutes
+                    setTimeout(() => {
+                        console.log("🗑️ Deleting File:", outputFile);
+                        fs.unlinkSync(outputFile); // **Delete File After 5 minutes**
+                    }, 5 * 60 * 1000); // 5 minutes in milliseconds
 
                 } else {
                     console.error("❌ MP4 File Not Found!");
                     res.status(500).send("❌ Error: MP4 file not found after download!");
                 }
-            }, 5000);
+            }, 5000); // Wait 5 seconds to ensure the file is fully saved
+
         });
 
     } catch (err) {
@@ -133,4 +138,3 @@ const PORT = 8000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
-                    
