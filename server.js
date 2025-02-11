@@ -8,7 +8,7 @@ const app = express();
 // 📂 Configurations
 const COOKIES_FILE = "./youtube-cookies.txt";
 const YTDLP_PATH = path.join(__dirname, "yt-dlp");
-const FFmpeg_PATH = path.join(__dirname, "ffmpeg/ffmpeg");  // Corrected FFmpeg Path
+const FFmpeg_PATH = path.join(__dirname, "ffmpeg/ffmpeg");  
 const DOWNLOAD_FOLDER = path.join(__dirname, "download");
 
 // 📂 Ensure Download Folder Exists
@@ -57,7 +57,7 @@ const installFFmpeg = () => {
 installYTDLP();
 installFFmpeg();
 
-// 🔗 Serve Download Folder Publicly (Temporarily)
+// 🔗 Serve Download Folder Publicly
 app.use("/download", express.static(DOWNLOAD_FOLDER));
 
 // 📌 API Root
@@ -65,67 +65,55 @@ app.get("/", (req, res) => {
     res.send("✅ YouTube Video Downloader API is Running!");
 });
 
-// 📥 Download Route
+// 📥 Download API
 app.get("/download", async (req, res) => {
     const videoUrl = req.query.url;
     if (!videoUrl) {
-        return res.status(400).send("❌ Error: Video URL required!");
+        return res.status(400).json({ status: "error", message: "❌ Video URL required!" });
     }
 
-    try {
-        console.log(`🔄 Fetching Video: ${videoUrl}`);
+    // 🆕 Unique File Name
+    const timestamp = Date.now();
+    const fileName = `video_${timestamp}.mp4`;
+    const outputPath = path.join(DOWNLOAD_FOLDER, fileName);
+    const downloadUrl = `http://localhost:8000/download/${fileName}`;
 
-        // 📂 Unique Filename
-        const timestamp = Date.now();
-        const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
+    // 🔻 yt-dlp Command for MP4 Download
+    let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${outputPath}" -f "best[ext=mp4]"`;
 
-        // 🔻 yt-dlp Command for Direct MP4 Download
-        let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${outputFile}" -f "best[ext=mp4]"`;
+    if (fs.existsSync(COOKIES_FILE)) {
+        console.log("✅ Cookies file found, using it...");
+        command += ` --cookies ${COOKIES_FILE}`;
+    } else {
+        console.warn("⚠️ Cookies file not found. Some videos may not download.");
+    }
 
-        if (fs.existsSync(COOKIES_FILE)) {
-            console.log("✅ Cookies file found, using it...");
-            command += ` --cookies ${COOKIES_FILE}`;
+    command += ` "${videoUrl}"`;
+
+    // ✅ Background Download (Faster API Response)
+    exec(command, (error, stdout, stderr) => {
+        if (error) {
+            console.error("❌ Download Error:", stderr);
         } else {
-            console.warn("⚠️ Cookies file not found. Some videos may not download.");
-        }
-
-        command += ` "${videoUrl}"`;
-
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                console.error("❌ Download Error:", stderr);
-                return res.status(500).send(`❌ Video Download Failed! Error: ${stderr}`);
-            }
-
             console.log("✅ Download Success:", stdout);
 
-            // 🔎 Wait & Check File Existence
+            // 🔥 **Auto-delete file after 10 minutes**
             setTimeout(() => {
-                if (fs.existsSync(outputFile)) {
-                    console.log("✅ File Ready for Download:", outputFile);
-                    
-                    // ⬇️ **Directly Send File to User & Delete from Server**
-                    res.download(outputFile, `downloaded_video.mp4`, (err) => {
-                        if (err) {
-                            console.error("❌ File Download Error:", err);
-                            res.status(500).send("❌ Error: Could not send file!");
-                        } else {
-                            console.log("🗑️ Deleting File:", outputFile);
-                            fs.unlinkSync(outputFile); // **Delete File After Download**
-                        }
-                    });
-
-                } else {
-                    console.error("❌ MP4 File Not Found!");
-                    res.status(500).send("❌ Error: MP4 file not found after download!");
+                if (fs.existsSync(outputPath)) {
+                    fs.unlinkSync(outputPath);
+                    console.log(`🗑️ Deleted: ${outputPath} (After 10 minutes)`);
                 }
-            }, 5000);
-        });
+            }, 10 * 60 * 1000); // 10 minutes
+        }
+    });
 
-    } catch (err) {
-        console.error("❌ Server Error:", err);
-        res.status(500).send("❌ Internal Server Error!");
-    }
+    // 🌟 **Immediately return the download link**
+    res.json({
+        status: "success",
+        title: `YouTube Video ${timestamp}`,
+        download_url: downloadUrl,
+        message: "⏳ Video is downloading, link will be ready in a few seconds!"
+    });
 });
 
 // 🚀 Start Server
@@ -133,4 +121,3 @@ const PORT = 8000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
-                    
