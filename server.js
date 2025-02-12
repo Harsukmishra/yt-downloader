@@ -8,16 +8,10 @@ const app = express();
 // 📂 Configurations
 const COOKIES_FILE = "./youtube-cookies.txt";
 const YTDLP_PATH = path.join(__dirname, "yt-dlp");
-const FFmpeg_PATH = path.join(__dirname, "ffmpeg/ffmpeg");
+const FFmpeg_PATH = path.join(__dirname, "ffmpeg/ffmpeg"); 
 const DOWNLOAD_FOLDER = path.join(__dirname, "download");
 
-// 📂 Ensure Download Folder Exists
-if (!fs.existsSync(DOWNLOAD_FOLDER)) {
-    console.log("🚀 Creating download folder...");
-    fs.mkdirSync(DOWNLOAD_FOLDER, { recursive: true });
-}
-
-// 🔄 Install yt-dlp if Not Exists
+// ✅ Install Dependencies for yt-dlp & FFmpeg
 const installYTDLP = () => {
     if (!fs.existsSync(YTDLP_PATH)) {
         console.log("🔄 Downloading yt-dlp...");
@@ -56,6 +50,12 @@ const installFFmpeg = () => {
 // 🛠 Install Dependencies on Server Start
 installYTDLP();
 installFFmpeg();
+
+// 📂 Ensure Download Folder Exists
+if (!fs.existsSync(DOWNLOAD_FOLDER)) {
+    console.log("🚀 Creating download folder...");
+    fs.mkdirSync(DOWNLOAD_FOLDER, { recursive: true });
+}
 
 // 🔗 Serve Download Folder Publicly (Temporarily)
 app.use("/download", express.static(DOWNLOAD_FOLDER));
@@ -104,27 +104,27 @@ app.get("/download", async (req, res) => {
                 if (fs.existsSync(outputFile)) {
                     console.log("✅ File Ready for Download:", outputFile);
 
-                    // ⬇️ **Generate a Temporary Download Link**
-                    const baseUrl = process.env.BASE_URL || 'https://kingstatus-video-downloader.onrender.com';
-                    const downloadUrl = `${baseUrl}/download/${path.basename(outputFile)}`;
-
-                    // Send the download URL to frontend
-                    res.json({
-                        status: "success",
-                        download_url: downloadUrl
+                    // ⬇️ Send the MP4 file directly
+                    res.sendFile(outputFile, (err) => {
+                        if (err) {
+                            console.error("❌ Error sending file:", err);
+                            res.status(500).send("❌ Error: Unable to send the file.");
+                        } else {
+                            console.log("✅ File Sent Successfully!");
+                        }
                     });
 
                     // ⏳ Schedule the file to be deleted after 5 minutes
                     setTimeout(() => {
                         console.log("🗑️ Deleting File:", outputFile);
-                        fs.unlinkSync(outputFile);
+                        fs.unlinkSync(outputFile); 
                     }, 5 * 60 * 1000); // 5 minutes in milliseconds
 
                 } else {
                     console.error("❌ MP4 File Not Found!");
                     res.status(500).send("❌ Error: MP4 file not found after download!");
                 }
-            }, 5000);
+            }, 5000); 
 
         });
 
@@ -134,24 +134,20 @@ app.get("/download", async (req, res) => {
     }
 });
 
-// 🔄 Keep-Alive Mechanism (Auto Refresh Every 4 Minutes)
-const BASE_URL = process.env.BASE_URL || "https://kingstatus-video-downloader.onrender.com"; // Change this to your actual server URL
-
-const keepAlive = () => {
-    setInterval(() => {
-        console.log("🔄 Keeping server alive...");
-        fetch(`${BASE_URL}/`) // Server ke root route ko ping karega
-            .then((res) => res.text())
-            .then((data) => console.log("✅ Server Alive:", data))
-            .catch((err) => console.error("❌ Ping Failed:", err));
-    }, 4 * 60 * 1000); // 4 minutes
-};
-
-// 🛠 Start Keep-Alive Function
-keepAlive();
-
-// 🚀 Start Server
+// सर्वर शुरू करने के बाद
 const PORT = 8000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
+
+// पिंग फीचर जोड़ना
+setInterval(() => {
+    exec("curl http://localhost:8000", (error, stdout, stderr) => {
+        if (error) {
+            console.error("❌ Error while pinging server:", stderr);
+        } else {
+            console.log("✅ Server is active and pinged successfully!");
+        }
+    });
+}, 4 * 60 * 1000);  // हर 4 मिनट में पिंग करना
+
