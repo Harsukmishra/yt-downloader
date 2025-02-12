@@ -8,7 +8,7 @@ const app = express();
 // 📂 Configurations
 const COOKIES_FILE = "./youtube-cookies.txt";
 const YTDLP_PATH = path.join(__dirname, "yt-dlp");
-const FFmpeg_PATH = path.join(__dirname, "ffmpeg/ffmpeg"); 
+const FFmpeg_PATH = path.join(__dirname, "ffmpeg/ffmpeg");
 const DOWNLOAD_FOLDER = path.join(__dirname, "download");
 
 // 📂 Ensure Download Folder Exists
@@ -117,14 +117,14 @@ app.get("/download", async (req, res) => {
                     // ⏳ Schedule the file to be deleted after 5 minutes
                     setTimeout(() => {
                         console.log("🗑️ Deleting File:", outputFile);
-                        fs.unlinkSync(outputFile); 
+                        fs.unlinkSync(outputFile);
                     }, 5 * 60 * 1000); // 5 minutes in milliseconds
 
                 } else {
                     console.error("❌ MP4 File Not Found!");
                     res.status(500).send("❌ Error: MP4 file not found after download!");
                 }
-            }, 5000); 
+            }, 5000);
 
         });
 
@@ -133,6 +133,22 @@ app.get("/download", async (req, res) => {
         res.status(500).send("❌ Internal Server Error!");
     }
 });
+
+// 🔄 Keep-Alive Mechanism (Auto Refresh Every 4 Minutes)
+const BASE_URL = process.env.BASE_URL || "https://kingstatus-video-downloader.onrender.com"; // Change this to your actual server URL
+
+const keepAlive = () => {
+    setInterval(() => {
+        console.log("🔄 Keeping server alive...");
+        fetch(`${BASE_URL}/`) // Server ke root route ko ping karega
+            .then((res) => res.text())
+            .then((data) => console.log("✅ Server Alive:", data))
+            .catch((err) => console.error("❌ Ping Failed:", err));
+    }, 4 * 60 * 1000); // 4 minutes
+};
+
+// 🛠 Start Keep-Alive Function
+keepAlive();
 
 // 🚀 Start Server
 const PORT = 8000;
