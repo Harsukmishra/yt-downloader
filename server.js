@@ -1,9 +1,11 @@
 const express = require("express");
+const cors = require("cors");
 const fs = require("fs");
 const { exec } = require("child_process");
 const path = require("path");
 
 const app = express();
+app.use(cors()); // ✅ CORS Enable
 
 // 📂 Configurations
 const COOKIES_FILE = "./youtube-cookies.txt";
@@ -42,8 +44,6 @@ const installFFmpeg = () => {
                 }
             }
         );
-    } else {
-        console.log("✅ FFmpeg Already Installed.");
     }
 };
 
@@ -69,7 +69,7 @@ app.get("/", (req, res) => {
 app.get("/download", async (req, res) => {
     const videoUrl = req.query.url;
     if (!videoUrl) {
-        return res.status(400).send("❌ Error: Video URL required!");
+        return res.status(400).json({ error: "❌ Error: Video URL required!" });
     }
 
     try {
@@ -80,7 +80,7 @@ app.get("/download", async (req, res) => {
         const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
         // 🔻 yt-dlp Command for Direct MP4 Download
-        let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${outputFile}" -f "best[ext=mp4]"`;
+        let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${outputFile}" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]"`;
 
         if (fs.existsSync(COOKIES_FILE)) {
             console.log("✅ Cookies file found, using it...");
@@ -94,7 +94,7 @@ app.get("/download", async (req, res) => {
         exec(command, (error, stdout, stderr) => {
             if (error) {
                 console.error("❌ Download Error:", stderr);
-                return res.status(500).send(`❌ Video Download Failed! Error: ${stderr}`);
+                return res.status(500).json({ error: `❌ Video Download Failed! Error: ${stderr}` });
             }
 
             console.log("✅ Download Success:", stdout);
@@ -108,7 +108,7 @@ app.get("/download", async (req, res) => {
                     res.sendFile(outputFile, (err) => {
                         if (err) {
                             console.error("❌ Error sending file:", err);
-                            res.status(500).send("❌ Error: Unable to send the file.");
+                            res.status(500).json({ error: "❌ Error: Unable to send the file." });
                         } else {
                             console.log("✅ File Sent Successfully!");
                         }
@@ -122,15 +122,15 @@ app.get("/download", async (req, res) => {
 
                 } else {
                     console.error("❌ MP4 File Not Found!");
-                    res.status(500).send("❌ Error: MP4 file not found after download!");
+                    res.status(500).json({ error: "❌ Error: MP4 file not found after download!" });
                 }
-            }, 5000); 
+            }, 15000); // 🔄 15 sec wait to ensure file download is complete
 
         });
 
     } catch (err) {
         console.error("❌ Server Error:", err);
-        res.status(500).send("❌ Internal Server Error!");
+        res.status(500).json({ error: "❌ Internal Server Error!" });
     }
 });
 
@@ -150,4 +150,3 @@ setInterval(() => {
         }
     });
 }, 4 * 60 * 1000);  // हर 4 मिनट में पिंग करना
-
