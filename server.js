@@ -137,12 +137,12 @@ app.get("/download", async (req, res) => {
 // सर्वर शुरू करने के बाद
 const PORT = 8000;
 app.listen(PORT, () => {
-    console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`🚀 Server running at https://kingstatus-video-downloader.onrender.com:${PORT}`);
 });
 
 // पिंग फीचर जोड़ना
 setInterval(() => {
-    exec("curl http://localhost:8000", (error, stdout, stderr) => {
+    exec("curl https://kingstatus-video-downloader.onrender.com", (error, stdout, stderr) => {
         if (error) {
             console.error("❌ Error while pinging server:", stderr);
         } else {
