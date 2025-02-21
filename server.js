@@ -57,7 +57,7 @@ if (!fs.existsSync(DOWNLOAD_FOLDER)) {
     fs.mkdirSync(DOWNLOAD_FOLDER, { recursive: true });
 }
 
-// 🔗 Serve Download Folder Publicly (Temporarily)
+// 🔗 Serve Download Folder Publicly
 app.use("/download", express.static(DOWNLOAD_FOLDER));
 
 // 📌 API Root
@@ -79,8 +79,11 @@ app.get("/download", async (req, res) => {
         const timestamp = Date.now();
         const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
-        // 🔻 yt-dlp Command for Direct MP4 Download
+        // 🔻 yt-dlp Command with Anti-Blocking Features
         let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${outputFile}" -f "best[ext=mp4]"`;
+        command += ` --force-generic-extractor`;
+        command += ` --user-agent \"Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/537.36\"`;
+        command += ` --ratelimit 50000`;
 
         if (fs.existsSync(COOKIES_FILE)) {
             console.log("✅ Cookies file found, using it...");
@@ -103,8 +106,6 @@ app.get("/download", async (req, res) => {
             setTimeout(() => {
                 if (fs.existsSync(outputFile)) {
                     console.log("✅ File Ready for Download:", outputFile);
-
-                    // ⬇️ Send the MP4 file directly
                     res.sendFile(outputFile, (err) => {
                         if (err) {
                             console.error("❌ Error sending file:", err);
@@ -113,21 +114,16 @@ app.get("/download", async (req, res) => {
                             console.log("✅ File Sent Successfully!");
                         }
                     });
-
-                    // ⏳ Schedule the file to be deleted after 5 minutes
                     setTimeout(() => {
                         console.log("🗑️ Deleting File:", outputFile);
                         fs.unlinkSync(outputFile); 
-                    }, 5 * 60 * 1000); // 5 minutes in milliseconds
-
+                    }, 5 * 60 * 1000);
                 } else {
                     console.error("❌ MP4 File Not Found!");
                     res.status(500).send("❌ Error: MP4 file not found after download!");
                 }
-            }, 5000); 
-
+            }, 5000);
         });
-
     } catch (err) {
         console.error("❌ Server Error:", err);
         res.status(500).send("❌ Internal Server Error!");
@@ -149,4 +145,4 @@ setInterval(() => {
             console.log("✅ Server is active and pinged successfully!");
         }
     });
-}, 4 * 60 * 1000);  // हर 4 मिनट में पिंग करना
+}, 4 * 60 * 1000);
