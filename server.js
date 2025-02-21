@@ -11,21 +11,23 @@ const YTDLP_PATH = path.join(__dirname, "yt-dlp");
 const FFmpeg_PATH = path.join(__dirname, "ffmpeg/ffmpeg"); 
 const DOWNLOAD_FOLDER = path.join(__dirname, "download");
 
-// ✅ Install Dependencies for yt-dlp & FFmpeg
+// ✅ Install or Update yt-dlp
 const installYTDLP = () => {
-    if (!fs.existsSync(YTDLP_PATH)) {
-        console.log("🔄 Downloading yt-dlp...");
-        exec(
-            `curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ${YTDLP_PATH} && chmod +x ${YTDLP_PATH}`,
-            (error) => {
-                if (error) {
-                    console.error("❌ yt-dlp Download Failed:", error.message);
-                } else {
-                    console.log("✅ yt-dlp Installed Successfully!");
+    console.log("🔄 Checking yt-dlp version...");
+    exec(`${YTDLP_PATH} --version`, (error, stdout) => {
+        if (error || !stdout) {
+            console.log("⚠️ yt-dlp not found or outdated. Installing latest version...");
+            exec(
+                `rm -f ${YTDLP_PATH} && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ${YTDLP_PATH} && chmod +x ${YTDLP_PATH}`,
+                (err) => {
+                    if (err) console.error("❌ yt-dlp Download Failed:", err.message);
+                    else console.log("✅ yt-dlp Installed Successfully!");
                 }
-            }
-        );
-    }
+            );
+        } else {
+            console.log(`✅ yt-dlp is up-to-date! Version: ${stdout.trim()}`);
+        }
+    });
 };
 
 // 🔄 Install FFmpeg Without `apt`
@@ -35,11 +37,8 @@ const installFFmpeg = () => {
         exec(
             `mkdir -p ffmpeg && cd ffmpeg && curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz -o ffmpeg.tar.xz && tar -xJf ffmpeg.tar.xz --strip-components=1 && chmod +x ffmpeg`,
             (error) => {
-                if (error) {
-                    console.error("❌ FFmpeg Download Failed:", error.message);
-                } else {
-                    console.log("✅ FFmpeg Installed Successfully!");
-                }
+                if (error) console.error("❌ FFmpeg Download Failed:", error.message);
+                else console.log("✅ FFmpeg Installed Successfully!");
             }
         );
     } else {
@@ -57,7 +56,7 @@ if (!fs.existsSync(DOWNLOAD_FOLDER)) {
     fs.mkdirSync(DOWNLOAD_FOLDER, { recursive: true });
 }
 
-// 🔗 Serve Download Folder Publicly
+// 🔗 Serve Download Folder Publicly (Temporarily)
 app.use("/download", express.static(DOWNLOAD_FOLDER));
 
 // 📌 API Root
@@ -79,11 +78,8 @@ app.get("/download", async (req, res) => {
         const timestamp = Date.now();
         const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
-        // 🔻 yt-dlp Command with Anti-Blocking Features
+        // 🔻 yt-dlp Command for Direct MP4 Download
         let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate -o "${outputFile}" -f "best[ext=mp4]"`;
-        command += ` --force-generic-extractor`;
-        command += ` --user-agent \"Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/537.36\"`;
-        command += ` --ratelimit 50000`;
 
         if (fs.existsSync(COOKIES_FILE)) {
             console.log("✅ Cookies file found, using it...");
@@ -106,6 +102,8 @@ app.get("/download", async (req, res) => {
             setTimeout(() => {
                 if (fs.existsSync(outputFile)) {
                     console.log("✅ File Ready for Download:", outputFile);
+
+                    // ⬇️ Send the MP4 file directly
                     res.sendFile(outputFile, (err) => {
                         if (err) {
                             console.error("❌ Error sending file:", err);
@@ -114,16 +112,21 @@ app.get("/download", async (req, res) => {
                             console.log("✅ File Sent Successfully!");
                         }
                     });
+
+                    // ⏳ Schedule the file to be deleted after 5 minutes
                     setTimeout(() => {
                         console.log("🗑️ Deleting File:", outputFile);
                         fs.unlinkSync(outputFile); 
-                    }, 5 * 60 * 1000);
+                    }, 5 * 60 * 1000); // 5 minutes in milliseconds
+
                 } else {
                     console.error("❌ MP4 File Not Found!");
                     res.status(500).send("❌ Error: MP4 file not found after download!");
                 }
-            }, 5000);
+            }, 5000); 
+
         });
+
     } catch (err) {
         console.error("❌ Server Error:", err);
         res.status(500).send("❌ Internal Server Error!");
@@ -145,4 +148,4 @@ setInterval(() => {
             console.log("✅ Server is active and pinged successfully!");
         }
     });
-}, 4 * 60 * 1000);
+}, 4 * 60 * 1000);  // हर 4 मिनट में पिंग करना
