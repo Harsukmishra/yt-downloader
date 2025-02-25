@@ -81,13 +81,12 @@ app.get("/download", async (req, res) => {
         const timestamp = Date.now();
         const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
-        // 🔻 yt-dlp Command for Direct MP4 Download with Spoofing
+        // 🔻 yt-dlp Command for Direct MP4 Download
         let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate --force-ipv4 --geo-bypass -o "${outputFile}" -f "best[ext=mp4]"`;
 
-        // ✅ Use Mobile API Spoofing (Bypass Rate-Limit)
-        command += ` --user-agent "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"`;
+        // ✅ Use Mobile User-Agent (Bypass Rate-Limit)
+        command += ` --user-agent "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Mobile Safari/537.36"`;
         command += ` --add-header "accept-language: en-US,en;q=0.9"`;
-        command += ` --extractor-args youtube:player_client=android`;
 
         // ✅ Use Cookies if Available
         if (fs.existsSync(COOKIES_FILE)) {
@@ -96,6 +95,10 @@ app.get("/download", async (req, res) => {
         } else {
             console.warn("⚠️ Cookies file not found. Some videos may not download.");
         }
+
+        // ✅ Use Proxy to Avoid 429 Error (Change Proxy if Blocked)
+        const proxy = "http://123.45.67.89:8080"; // Replace with working proxy
+        command += ` --proxy ${proxy}`;
 
         command += ` "${videoUrl}"`;
 
