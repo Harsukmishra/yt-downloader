@@ -81,19 +81,13 @@ app.get("/download", async (req, res) => {
         const timestamp = Date.now();
         const outputFile = path.join(DOWNLOAD_FOLDER, `video_${timestamp}.mp4`);
 
-        // 🔻 yt-dlp Command for Direct MP4 Download with Spoofing & Proxy
+        // 🔻 yt-dlp Command for Direct MP4 Download with Spoofing
         let command = `${YTDLP_PATH} --ffmpeg-location ${FFmpeg_PATH} --no-check-certificate --force-ipv4 --geo-bypass -o "${outputFile}" -f "best[ext=mp4]"`;
 
         // ✅ Use Mobile API Spoofing (Bypass Rate-Limit)
         command += ` --user-agent "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"`;
         command += ` --add-header "accept-language: en-US,en;q=0.9"`;
         command += ` --extractor-args youtube:player_client=android`;
-
-        // ✅ Use Proxy (Agar Available Hai)
-        const proxy = "http://your-proxy-ip:port"; // Yahan apna proxy set karein agar available ho
-        if (proxy) {
-            command += ` --proxy ${proxy}`;
-        }
 
         // ✅ Use Cookies if Available
         if (fs.existsSync(COOKIES_FILE)) {
